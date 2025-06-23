@@ -1,0 +1,397 @@
+/**
+ * ARWAI Image Annotator - v2 (Simple Viewer)
+ *
+ * Frontend public styles for the new simple image viewer.
+ */
+
+/* ==========================================================================
+   1. Viewer: Main Container & Layout
+   ========================================================================== */
+
+.arwai-simple-viewer {
+    width: 90%;
+    margin: 2em auto;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+}
+
+.arwai-simple-viewer-main {
+    display: flex;
+    justify-content: center;
+    position: relative;
+    /* border-radius: 8px; */
+    overflow: hidden; /* Ensures the nav stays inside */
+    /* box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); */
+    background-color: #fff;
+}
+
+.arwai-simple-viewer-main img {
+    object-fit: contain;
+    max-width: 100%;
+    height: 66vh;
+    display: block; /* Removes bottom space under the image */
+}
+
+
+/* ==========================================================================
+   2. Viewer: Navigation (Prev/Next/Counter)
+   ========================================================================== */
+
+.arwai-simple-viewer-nav {
+    position: absolute;
+    bottom: 15px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    background-color: rgba(0, 0, 0, 0.6);
+    border-radius: 20px;
+    padding: 5px;
+    backdrop-filter: blur(5px);
+}
+
+.arwai-simple-viewer-nav button {
+    background: transparent;
+    border: none;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 5px;
+    border-radius: 50%;
+    transition: background-color 0.2s;
+}
+
+.arwai-simple-viewer-nav button:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.arwai-simple-counter {
+    color: white;
+    font-size: 14px;
+    font-weight: 500;
+    margin: 0 12px;
+    min-width: 40px;
+    text-align: center;
+}
+
+
+/* ==========================================================================
+   3. Viewer: Thumbnail Reference Strip
+   ========================================================================== */
+
+.arwai-simple-viewer-strip-container {
+    display: flex;
+    align-items: center;
+    margin-top: 15px;
+}
+
+#arwai-simple-viewer-reference-strip {
+    flex-grow: 1;
+    justify-content: center;
+    display: flex;
+    overflow-x: auto;
+    padding: 5px 0;
+    white-space: nowrap;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none;  /* IE and Edge */
+}
+
+#arwai-simple-viewer-reference-strip::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, and Opera */
+}
+
+.arwai-simple-thumb {
+    height: 80px;
+    margin: 0 5px;
+    border: 3px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0; /* Prevents thumbnails from shrinking */
+}
+
+.arwai-simple-thumb:hover {
+    border-color: #00a4cb; /* A nice blue hover */
+    transform: scale(1.05);
+}
+
+.arwai-simple-thumb.active {
+    border-color: #e64833; /* A contrasting color for active */
+    transform: scale(1.1);
+}
+
+.arwai-simple-strip-scroll-left,
+.arwai-simple-strip-scroll-right {
+    flex-shrink: 0;
+    background: #e9ecef;
+    border: none;
+    cursor: pointer;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    margin: 0 5px;
+}
+
+.arwai-simple-strip-scroll-left:hover,
+.arwai-simple-strip-scroll-right:hover {
+    background: #dee2e6;
+}
+
+
+/* ==========================================================================
+   4. Annotorious & Annotation List Styles
+   ========================================================================== */
+
+/* This makes the custom label visible on the SVG canvas */
+
+  .a9s-annotation foreignObject {
+    overflow:visible;
+    width:1px;
+    height:1px;
+  }
+
+  .a9s-annotation foreignObject label {
+    display:inline-block;
+    padding: 2px 8px;
+    background: #ff0000;
+    color: white;
+    /* padding: 3px 6px; */
+    border-radius: 4px 4px 0 0;
+    font-size: 12px;
+    font-weight: bold;
+    transform:translateY(-100%) translateY(-6px) translateX(-1px);    /* Position above the shape */
+    white-space: nowrap;
+    z-index: -2;
+  }
+
+
+/* Annotation State Modifiers */
+.a9s-annotation.tagged .a9s-inner {
+    stroke: #00a4cb;
+    fill: rgba(0, 164, 203, 0.2);
+}
+.a9s-annotation.important .a9s-inner {
+    stroke: #ff0000;
+    fill: rgba(255, 0, 0, 0.2);
+}
+
+
+/**** ANNOTATION LIST ****/
+#arwai-annotation-list-container {
+    color: black;
+    max-width: 350px;
+    margin: 2em auto;
+    /* padding: 2em 1em; */
+    background-color: #fff;
+    /* border-top: 1px solid #e0e0e0; */
+}
+
+#arwai-annotation-list-container h3 {
+    text-align: center;
+    font-size: 1.8em;
+    margin-bottom: 1em;
+}
+
+#arwai-annotation-list {
+    list-style: none;
+    padding: 1em;
+    margin-bottom: 5em;
+}
+
+#arwai-annotation-list >li {
+    background: #fff;
+    border-top: 2px solid #e4e4e4b5;
+    /* border-radius: 8px; */
+    /* margin-bottom: .5em; */
+    padding: 0.3em;
+}
+
+.arwai-anno-list-item{
+    padding: 5px;
+    /* display: flex ;
+    align-items: center; */
+    /* justify-content: center; */
+}
+
+/* Annotation ID header */
+.arwai-anno-list-header span{ 
+    font-weight: bold;
+    font-size: 0.75em;
+    color: #5a5a5a;
+    /* margin-bottom: 0.5em; */
+    text-align: center;
+    padding: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #e4e4e4b5;
+    border-radius: 25%;
+    width: 40px;
+    height: 40px;
+    float: left;
+    transform: translateY(20%);
+
+}
+
+.arwai-anno-list-header{
+    height: 100%;
+}
+
+.arwai-anno-list-body {
+    text-align: center;
+}
+
+.arwai-anno-list-comments {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.arwai-anno-list-comment-item p {
+    margin: 0 0 1px 0 !important;
+    padding: 0;
+}
+
+
+.arwai-anno-list-comment-item {
+border-radius: 50px 0 50px 50px!important;
+margin-bottom: 10px;
+
+}
+
+.arwai-anno-list-comment-meta {
+    font-size: 0.5em;
+    color: #6c757d;
+}
+
+.arwai-anno-list-footer {
+    font-size: 0.7em;
+    text-align: center;
+    margin: 0 7px;
+    padding: 5px;
+
+}
+
+.arwai-anno-list-tag {
+    display: inline-block;
+    background-color: #e9ecef;
+    border-radius: 4px;
+    padding: 3px 8px;
+    margin: 0 5px 2px 5px;
+    font-size: 0.9em;
+    border: none;
+    border: 0.5px solid #d1d5d8;
+    cursor: pointer;
+}
+
+.arwai-anno-list-tag a {
+    text-decoration: none;
+    color: inherit;
+}
+
+/* ==========================================================================
+   5. Annotation Sidebar
+   ========================================================================== */
+
+
+#mainViewerID {
+    transition: 0.3s;
+    /* display: flex; */
+    /* flex-direction: row;  */
+}
+
+#sidebarNav {
+    transition: margin-right .5s; /* Changed from margin-left */
+    /* padding: 16px; */
+    position: relative;
+    text-align:right;
+    top: 0;
+    right: 0; /* Changed from left to right */
+    z-index: 1000;
+}
+
+
+.sidebar {
+    height: 100%;
+    width: 0;
+    position: fixed;
+    z-index: 1;
+    top: 0;
+    right: 0; /* Changed from left to right */
+    background-color: #fff;
+    overflow-x: hidden;
+    transition: 0.3s;
+    /* border: 5px dotted green;  */
+    /* Kept your border for visibility */
+    font-size: var(--wp--preset--font-size--medium);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+
+}
+
+.sidebar a {
+  text-decoration: none;
+  color: #818181;
+  display: block;
+  transition: 0.3s;
+}
+.sidebar a:hover {
+  color: #f1f1f1;
+}
+
+.sidebar .closebtn {
+  position: absolute;
+  top: 0;
+  right: 25px;
+  /* font-size: var(--wp--preset--font-size--small)!important; */
+  margin-left: 50px;
+}
+
+.sidebar-nav-button {
+    transform: 
+    rotate(90deg)
+    translateX(-40px) 
+    translateY(-52px);
+  font-size: .8em;
+  cursor: pointer;
+  background-color: #111;
+  color: white;
+  padding: 10px 15px;
+  border: none;
+  border-radius: 0 0 6px 6px;
+}
+.openbtn:hover {
+  background-color: #444;
+}
+
+/* ==========================================================================
+   5. Viewer: Toggle Button (Added)
+   ========================================================================== */
+
+#arwai-annotation-show-hide-buttons{
+display: flex;
+    justify-content: center;
+    z-index: 1000; /* Ensure it stays on top */
+}
+
+.arwai-simple-toggle {
+    background: white;
+    border: none;
+    color: black;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 5px;
+    border-radius: 50%;
+    transition: background-color 0.2s;
+    margin-left: 10px; /* Add some space */
+}
+
+.arwai-simple-toggle:hover {
+    background-color: rgba(77, 77, 77, 0.491);
+}
