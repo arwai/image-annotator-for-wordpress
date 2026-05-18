@@ -651,7 +651,7 @@ class Image_Annotator_for_WordPress {
 
         // Verify ownership: must be the creator OR have manage_options capability
         $creator_id = $wpdb->get_var( $wpdb->prepare( "SELECT user_id FROM {$this->history_table_name} WHERE annotation_id_from_annotorious = %s AND attachment_id = %d AND action_type = 'created' LIMIT 1", $annoid, $attachment_id ) );
-        if ( $creator_id && (int) $creator_id !== get_current_user_id() && ! current_user_can( 'manage_options' ) ) {
+        if ( ! current_user_can( 'manage_options' ) && ( ! $creator_id || (int) $creator_id !== get_current_user_id() ) ) {
             wp_send_json_error( 'You do not have permission to delete this annotation.' );
         }
 
@@ -683,7 +683,7 @@ class Image_Annotator_for_WordPress {
 
         // Verify ownership: must be the creator OR have manage_options capability
         $creator_id = $wpdb->get_var( $wpdb->prepare( "SELECT user_id FROM {$this->history_table_name} WHERE annotation_id_from_annotorious = %s AND attachment_id = %d AND action_type = 'created' LIMIT 1", $annoid, $attachment_id ) );
-        if ( $creator_id && (int) $creator_id !== get_current_user_id() && ! current_user_can( 'manage_options' ) ) {
+        if ( ! current_user_can( 'manage_options' ) && ( ! $creator_id || (int) $creator_id !== get_current_user_id() ) ) {
             wp_send_json_error( 'You do not have permission to update this annotation.' );
         }
 
