@@ -565,25 +565,12 @@ class Image_Annotator_for_WordPress {
         }
         check_ajax_referer( 'arwai_anno_nonce', 'nonce' );
 
-        check_ajax_referer( 'arwai_anno_nonce', 'nonce' );
-
-        if ( get_option( self::OPTION_ANNO_READ_ONLY, false ) && ! current_user_can( 'manage_options' ) ) {
-            wp_send_json_error( 'Annotations are read-only.' );
-        }
-
         global $wpdb;
         $annotation_json = isset($_POST['annotation']) ? wp_unslash($_POST['annotation']) : '';
         if (empty($annotation_json)) { wp_send_json_error('Annotation data missing.'); }
 
         $annotation = json_decode($annotation_json, true);
         if (json_last_error() !== JSON_ERROR_NONE) { wp_send_json_error('Invalid JSON data.'); }
-
-        // Set creator server-side
-        $user = wp_get_current_user();
-        $annotation['creator'] = [
-            'id' => $user->ID,
-            'displayName' => $user->display_name,
-        ];
 
         $image_url = $annotation['target']['source'] ?? '';
         if (empty($image_url)) { wp_send_json_error('Annotation target source URL missing.'); }
@@ -661,12 +648,6 @@ class Image_Annotator_for_WordPress {
         }
         check_ajax_referer( 'arwai_anno_nonce', 'nonce' );
 
-        check_ajax_referer( 'arwai_anno_nonce', 'nonce' );
-
-        if ( get_option( self::OPTION_ANNO_READ_ONLY, false ) && ! current_user_can( 'manage_options' ) ) {
-            wp_send_json_error( 'Annotations are read-only.' );
-        }
-
         global $wpdb;
         $annoid = isset($_POST['annotationid']) ? sanitize_text_field($_POST['annotationid']) : '';
         $annotation_json = isset($_POST['annotation']) ? wp_unslash($_POST['annotation']) : '';
@@ -678,20 +659,19 @@ class Image_Annotator_for_WordPress {
         if (empty($attachment_id)) { wp_send_json_error('Could not find attachment ID.'); }
 
         $existing = $wpdb->get_row( $wpdb->prepare( "SELECT annotation_data FROM {$this->table_name} WHERE annotation_id_from_annotorious = %s AND attachment_id = %d", $annoid, $attachment_id ), ARRAY_A );
-        if ( ! $existing ) {
-            wp_send_json_error( 'Annotation not found.' );
+        if (!$existing) {
+            wp_send_json_error('Annotation not found.');
         }
 
-        $existing_annotation = json_decode( $existing['annotation_data'], true );
-        $current_user_id = get_current_user_id();
-
-        // Ownership check
-        $creator_id = isset( $existing_annotation['creator']['id'] ) ? (int) $existing_annotation['creator']['id'] : 0;
-        if ( $creator_id !== $current_user_id && ! current_user_can( 'manage_options' ) ) {
+        // Verify ownership: must be the creator OR have manage_options capability
+        $creator_id = $wpdb->get_var( $wpdb->prepare( "SELECT user_id FROM {$this->history_table_name} WHERE annotation_id_from_annotorious = %s AND attachment_id = %d AND action_type = 'created' LIMIT 1", $annoid, $attachment_id ) );
+        if ( ! current_user_can( 'manage_options' ) && ( ! $creator_id || (int) $creator_id !== get_current_user_id() ) ) {
             wp_send_json_error( 'You do not have permission to delete this annotation.' );
         }
 
-        $wpdb->insert( $this->history_table_name, array('annotation_id_from_annotorious' => $annoid, 'attachment_id' => $attachment_id, 'action_type' => 'deleted', 'annotation_data_snapshot' => $existing['annotation_data'], 'user_id' => $current_user_id), array('%s', '%d', '%s', '%s', '%d') );
+        if ($existing) {
+            $wpdb->insert( $this->history_table_name, array('annotation_id_from_annotorious' => $annoid, 'attachment_id' => $attachment_id, 'action_type' => 'deleted', 'annotation_data_snapshot' => $existing['annotation_data'], 'user_id' => get_current_user_id()), array('%s', '%d', '%s', '%s', '%d') );
+        }
 
         $deleted = $wpdb->delete( $this->table_name, array('annotation_id_from_annotorious' => $annoid, 'attachment_id' => $attachment_id), array('%s', '%d') );
 
@@ -705,12 +685,6 @@ class Image_Annotator_for_WordPress {
         }
         check_ajax_referer( 'arwai_anno_nonce', 'nonce' );
 
-        check_ajax_referer( 'arwai_anno_nonce', 'nonce' );
-
-        if ( get_option( self::OPTION_ANNO_READ_ONLY, false ) && ! current_user_can( 'manage_options' ) ) {
-            wp_send_json_error( 'Annotations are read-only.' );
-        }
-
         global $wpdb;
         $annoid = isset($_POST['annotationid']) ? sanitize_text_field($_POST['annotationid']) : '';
         $annotation_json = isset($_POST['annotation']) ? wp_unslash($_POST['annotation']) : '';
@@ -721,48 +695,10 @@ class Image_Annotator_for_WordPress {
         $attachment_id = attachment_url_to_postid($image_url);
         if (empty($attachment_id)) { wp_send_json_error('Could not find attachment ID.'); }
 
-        $existing = $wpdb->get_row( $wpdb->prepare( "SELECT annotation_data FROM {$this->table_name} WHERE annotation_id_from_annotorious = %s AND attachment_id = %d", $annoid, $attachment_id ), ARRAY_A );
-        if ( ! $existing ) {
-            wp_send_json_error( 'Annotation not found.' );
-        }
-
-        $existing_annotation = json_decode( $existing['annotation_data'], true );
-        $current_user_id = get_current_user_id();
-
-        // Ownership check
-        $creator_id = isset( $existing_annotation['creator']['id'] ) ? (int) $existing_annotation['creator']['id'] : 0;
-        if ( $creator_id !== $current_user_id && ! current_user_can( 'manage_options' ) ) {
+        // Verify ownership: must be the creator OR have manage_options capability
+        $creator_id = $wpdb->get_var( $wpdb->prepare( "SELECT user_id FROM {$this->history_table_name} WHERE annotation_id_from_annotorious = %s AND attachment_id = %d AND action_type = 'created' LIMIT 1", $annoid, $attachment_id ) );
+        if ( ! current_user_can( 'manage_options' ) && ( ! $creator_id || (int) $creator_id !== get_current_user_id() ) ) {
             wp_send_json_error( 'You do not have permission to update this annotation.' );
-        }
-
-        // Preserve creator and DB ID info from existing record to prevent spoofing during update
-        $annotation['creator'] = $existing_annotation['creator'];
-
-        // Find and preserve arwai-AnnotationID body if it exists
-        $existing_arwai_id_body = null;
-        if (isset($existing_annotation['body']) && is_array($existing_annotation['body'])) {
-            foreach ($existing_annotation['body'] as $body_item) {
-                if (isset($body_item['purpose']) && $body_item['purpose'] === 'arwai-AnnotationID') {
-                    $existing_arwai_id_body = $body_item;
-                    break;
-                }
-            }
-        }
-
-        if ($existing_arwai_id_body) {
-            $id_found = false;
-            if (isset($annotation['body']) && is_array($annotation['body'])) {
-                foreach ($annotation['body'] as $key => $body_item) {
-                    if (isset($body_item['purpose']) && $body_item['purpose'] === 'arwai-AnnotationID') {
-                        $annotation['body'][$key] = $existing_arwai_id_body;
-                        $id_found = true;
-                        break;
-                    }
-                }
-                if (!$id_found) {
-                    $annotation['body'][] = $existing_arwai_id_body;
-                }
-            }
         }
 
         $this->_sync_annotation_tags_to_attachment($attachment_id, $annotation['body']);
