@@ -248,6 +248,7 @@ class Image_Annotator_for_WordPress {
                         'drawOnSingleClick' => rest_sanitize_boolean(get_option(self::OPTION_ANNO_DRAW_ON_SINGLE_CLICK, false)),
                         'linkTaxonomy' => $linked_taxonomy,
                         'addTermNonce' => wp_create_nonce( 'arwai_add_term_nonce' ),
+                        'annoNonce'    => wp_create_nonce( 'arwai_anno_nonce' ),
                         'tagVocabulary' => [],
                         'currentUser' => $current_user_data,
                         'tagLinks' => [],
@@ -548,6 +549,11 @@ class Image_Annotator_for_WordPress {
         if ( ! is_user_logged_in() ) {
             wp_send_json_error( 'You must be logged in to create annotations.' );
         }
+        check_ajax_referer( 'arwai_anno_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'edit_posts' ) ) {
+            wp_send_json_error( 'You do not have permission to create annotations.' );
+        }
 
         global $wpdb;
         $annotation_json = isset($_POST['annotation']) ? wp_unslash($_POST['annotation']) : '';
@@ -630,6 +636,11 @@ class Image_Annotator_for_WordPress {
         if ( ! is_user_logged_in() ) {
             wp_send_json_error( 'You must be logged in to delete annotations.' );
         }
+        check_ajax_referer( 'arwai_anno_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'edit_posts' ) ) {
+            wp_send_json_error( 'You do not have permission to delete annotations.' );
+        }
 
         global $wpdb;
         $annoid = isset($_POST['annotationid']) ? sanitize_text_field($_POST['annotationid']) : '';
@@ -655,6 +666,11 @@ class Image_Annotator_for_WordPress {
     function anno_update() {
         if ( ! is_user_logged_in() ) {
             wp_send_json_error( 'You must be logged in to update annotations.' );
+        }
+        check_ajax_referer( 'arwai_anno_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'edit_posts' ) ) {
+            wp_send_json_error( 'You do not have permission to update annotations.' );
         }
 
         global $wpdb;
