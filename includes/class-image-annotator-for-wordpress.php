@@ -194,94 +194,129 @@ class Image_Annotator_for_WordPress {
     }
 
     /**
-     * UPDATED: load_public_scripts
      * Enqueues scripts and styles for the frontend and localizes data.
      */
-    public function load_public_scripts(){
-        if ( ! is_singular( $this->get_active_post_types() ) ) return;
+    public function load_public_scripts() {
+        if ( ! is_singular( $this->get_active_post_types() ) ) {
+            return;
+        }
+
         $post_id = get_the_ID();
-        if (!$post_id) return;
+        if ( ! $post_id ) {
+            return;
+        }
 
         $display_mode = get_post_meta( $post_id, self::META_POST_DISPLAY_MODE, true ) ?: get_option( self::OPTION_DEFAULT_NEW_POST_MODE, 'metabox_viewer' );
 
-        if ( 'metabox_viewer' === $display_mode ) {
-            $image_ids = json_decode( get_post_meta( $post_id, self::META_IMAGE_IDS, true ), true );
-            if ( !empty( $image_ids ) && is_array( $image_ids ) ) {
-
-                $image_sources = array_reduce( $image_ids, function($carry, $id) {
-                    $full_src = wp_get_attachment_image_src( $id, 'full' );
-                    $thumb_src = wp_get_attachment_image_src( $id, 'thumbnail' );
-                    if ($full_src) {
-                        $carry[] = [
-                            'url'          => $full_src[0],
-                            'post_id'      => $id,
-                            'thumbnailUrl' => $thumb_src ? $thumb_src[0] : ''
-                        ];
-                    }
-                    return $carry;
-                }, []);
-
-                if (!empty($image_sources)) {
-                    // Enqueue Styles
-                    wp_enqueue_style( 'arwai-annotorious-css', ARWAI_IMAGE_ANNOTATOR_URL . 'assets/css/annotorious/annotorious.min.css');
-                    wp_enqueue_style( 'arwai-public-css', ARWAI_IMAGE_ANNOTATOR_URL . 'assets/css/public/public.css');
-
-                    // Enqueue Scripts
-                    wp_enqueue_script( 'arwai-annotorious-js', ARWAI_IMAGE_ANNOTATOR_URL . 'assets/js/annotorious/annotorious.min.js', array(), null, true );
-                    wp_enqueue_script( 'arwai-public-js', ARWAI_IMAGE_ANNOTATOR_URL . 'assets/js/public/script.js', array('jquery', 'arwai-annotorious-js'), null, true);
-                    wp_enqueue_script( 'feather-icons-js', ARWAI_IMAGE_ANNOTATOR_URL . 'assets/js/feather.min.js', array(), null, true); //
-
-                    // Annotorious options
-                    $linked_taxonomy = get_option(self::OPTION_ANNO_TAGS_LINK_TAXONOMY, 'none');
-                    $current_user_data = null;
-                    if ( is_user_logged_in() ) {
-                        $user = wp_get_current_user();
-                        $current_user_data = [
-                            'id' => $user->ID,
-                            'displayName' => $user->display_name,
-                        ];
-                    }
-
-                    $anno_options = [
-                        'readOnly' => rest_sanitize_boolean(get_option(self::OPTION_ANNO_READ_ONLY, false)),
-                        'allowEmpty' => rest_sanitize_boolean(get_option(self::OPTION_ANNO_ALLOW_EMPTY, false)),
-                        'drawOnSingleClick' => rest_sanitize_boolean(get_option(self::OPTION_ANNO_DRAW_ON_SINGLE_CLICK, false)),
-                        'linkTaxonomy' => $linked_taxonomy,
-                        'addTermNonce' => wp_create_nonce( 'arwai_add_term_nonce' ),
-                        'tagVocabulary' => [],
-                        'currentUser' => $current_user_data,
-                        'tagLinks' => [],
-                    ];
-
-                    if ($linked_taxonomy !== 'none') {
-                        $terms = get_terms(['taxonomy' => $linked_taxonomy, 'hide_empty' => false]);
-                        if (!is_wp_error($terms) && !empty($terms)) {
-                            $anno_options['tagVocabulary'] = wp_list_pluck($terms, 'name');
-                            $tag_link_map = [];
-                            foreach ($terms as $term) {
-                                $term_link = get_term_link($term, $linked_taxonomy);
-                                if (!is_wp_error($term_link)) {
-                                    $tag_link_map[$term->name] = esc_url($term_link);
-                                }
-                            }
-                            $anno_options['tagLinks'] = $tag_link_map;
-                        }
-                    }
-
-                    // Localized data structure to match the new script
-                    $viewer_data = [
-                        'containerId'   => 'arwai-simple-viewer-container-' . $post_id,
-                        'images'        => $image_sources,
-                        'ajax_url'      => admin_url( 'admin-ajax.php' ),
-                        'anno_options'  => $anno_options
-                    ];
-
-                    wp_localize_script( 'arwai-public-js', 'Arwai_Annotator_Data', $viewer_data );
-                }
-            }
+        if ( 'metabox_viewer' !== $display_mode ) {
+            return;
         }
+
+        $image_ids_json = get_post_meta( $post_id, self::META_IMAGE_IDS, true );
+        $image_ids = json_decode( $image_ids_json, true );
+        $image_sources = $this->get_formatted_image_sources( $image_ids );
+
+        if ( empty( $image_sources ) ) {
+            return;
+        }
+
+        $this->enqueue_public_assets();
+
+        $viewer_data = [
+            'containerId'   => 'arwai-simple-viewer-container-' . $post_id,
+            'images'        => $image_sources,
+            'ajax_url'      => admin_url( 'admin-ajax.php' ),
+            'anno_options'  => $this->get_annotorious_config_options(),
+        ];
+
+        wp_localize_script( 'arwai-public-js', 'Arwai_Annotator_Data', $viewer_data );
     }
 
+
+    /**
+     * Prepares image data for the frontend viewer.
+     *
+     * @param array $image_ids Array of attachment IDs.
+     * @return array Formatted image source data.
+     */
+    private function get_formatted_image_sources( $image_ids ) {
+        if ( empty( $image_ids ) || ! is_array( $image_ids ) ) {
+            return [];
+        }
+
+        return array_reduce( $image_ids, function($carry, $id) {
+            $full_src = wp_get_attachment_image_src( $id, 'full' );
+            $thumb_src = wp_get_attachment_image_src( $id, 'thumbnail' );
+            if ($full_src) {
+                $carry[] = [
+                    'url'          => $full_src[0],
+                    'post_id'      => $id,
+                    'thumbnailUrl' => $thumb_src ? $thumb_src[0] : ''
+                ];
+            }
+            return $carry;
+        }, []);
+    }
+
+    /**
+     * Enqueues CSS and JS for the frontend.
+     */
+    private function enqueue_public_assets() {
+        // Enqueue Styles
+        wp_enqueue_style( 'arwai-annotorious-css', ARWAI_IMAGE_ANNOTATOR_URL . 'assets/css/annotorious/annotorious.min.css');
+        wp_enqueue_style( 'arwai-public-css', ARWAI_IMAGE_ANNOTATOR_URL . 'assets/css/public/public.css');
+
+        // Enqueue Scripts
+        wp_enqueue_script( 'arwai-annotorious-js', ARWAI_IMAGE_ANNOTATOR_URL . 'assets/js/annotorious/annotorious.min.js', array(), null, true );
+        wp_enqueue_script( 'arwai-public-js', ARWAI_IMAGE_ANNOTATOR_URL . 'assets/js/public/script.js', array('jquery', 'arwai-annotorious-js'), null, true);
+        wp_enqueue_script( 'feather-icons-js', ARWAI_IMAGE_ANNOTATOR_URL . 'assets/js/feather.min.js', array(), null, true);
+    }
+
+    /**
+     * Compiles Annotorious configuration options.
+     *
+     * @return array Configuration options for Annotorious.
+     */
+    private function get_annotorious_config_options() {
+        $linked_taxonomy = get_option(self::OPTION_ANNO_TAGS_LINK_TAXONOMY, 'none');
+        $current_user_data = null;
+
+        if ( is_user_logged_in() ) {
+            $user = wp_get_current_user();
+            $current_user_data = [
+                'id' => $user->ID,
+                'displayName' => $user->display_name,
+            ];
+        }
+
+        $anno_options = [
+            'readOnly'          => rest_sanitize_boolean(get_option(self::OPTION_ANNO_READ_ONLY, false)),
+            'allowEmpty'        => rest_sanitize_boolean(get_option(self::OPTION_ANNO_ALLOW_EMPTY, false)),
+            'drawOnSingleClick' => rest_sanitize_boolean(get_option(self::OPTION_ANNO_DRAW_ON_SINGLE_CLICK, false)),
+            'linkTaxonomy'      => $linked_taxonomy,
+            'addTermNonce'      => wp_create_nonce( 'arwai_add_term_nonce' ),
+            'tagVocabulary'     => [],
+            'currentUser'       => $current_user_data,
+            'tagLinks'          => [],
+        ];
+
+        if ($linked_taxonomy !== 'none') {
+            $terms = get_terms(['taxonomy' => $linked_taxonomy, 'hide_empty' => false]);
+            if (!is_wp_error($terms) && !empty($terms)) {
+                $anno_options['tagVocabulary'] = wp_list_pluck($terms, 'name');
+                $tag_link_map = [];
+                foreach ($terms as $term) {
+                    $term_link = get_term_link($term, $linked_taxonomy);
+                    if (!is_wp_error($term_link)) {
+                        $tag_link_map[$term->name] = esc_url($term_link);
+                    }
+                }
+                $anno_options['tagLinks'] = $tag_link_map;
+            }
+        }
+
+        return $anno_options;
+    }
 
     public function load_admin_scripts($hook_suffix) {
         $is_settings_page = $hook_suffix === 'settings_page_arwai-image-annotator-settings';
