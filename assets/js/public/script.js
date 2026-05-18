@@ -174,7 +174,7 @@ jQuery(document).ready(function($) {
             const imageEl = mainImage[0];
             const percentAnnotation = convertAnnotationToPercent(annotation, imageEl.naturalWidth, imageEl.naturalHeight);
             percentAnnotation.target.source = images[currentIndex].url;
-            $.post(ajax_url, { action: 'arwai_anno_add', annotation: JSON.stringify(percentAnnotation) })
+            $.post(ajax_url, { action: 'arwai_anno_add', annotation: JSON.stringify(percentAnnotation), nonce: anno_options.annoNonce })
                 .done(function(response) {
                     if (response.success && response.data.annotation) {
                         anno.removeAnnotation(annotation);
@@ -189,13 +189,13 @@ jQuery(document).ready(function($) {
             const imageEl = mainImage[0];
             const percentAnnotation = convertAnnotationToPercent(annotation, imageEl.naturalWidth, imageEl.naturalHeight);
             percentAnnotation.target.source = images[currentIndex].url;
-            $.post(ajax_url, { action: 'arwai_anno_update', annotation: JSON.stringify(percentAnnotation), annotationid: percentAnnotation.id });
+            $.post(ajax_url, { action: 'arwai_anno_update', annotation: JSON.stringify(percentAnnotation), annotationid: percentAnnotation.id, nonce: anno_options.annoNonce });
             updateAnnotationList();
         });
 
         anno.on('deleteAnnotation', function(annotation) {
             annotation.target.source = images[currentIndex].url;
-            $.post(ajax_url, { action: 'arwai_anno_delete', annotation: JSON.stringify(annotation), annotationid: annotation.id });
+            $.post(ajax_url, { action: 'arwai_anno_delete', annotation: JSON.stringify(annotation), annotationid: annotation.id, nonce: anno_options.annoNonce });
             updateAnnotationList();
         });
 

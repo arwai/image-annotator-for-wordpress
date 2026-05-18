@@ -212,25 +212,32 @@ class Image_Annotator_for_WordPress {
             return;
         }
 
-        $image_ids_json = get_post_meta( $post_id, self::META_IMAGE_IDS, true );
-        $image_ids = json_decode( $image_ids_json, true );
-        $image_sources = $this->get_formatted_image_sources( $image_ids );
+                    $anno_options = [
+                        'readOnly' => rest_sanitize_boolean(get_option(self::OPTION_ANNO_READ_ONLY, false)),
+                        'allowEmpty' => rest_sanitize_boolean(get_option(self::OPTION_ANNO_ALLOW_EMPTY, false)),
+                        'drawOnSingleClick' => rest_sanitize_boolean(get_option(self::OPTION_ANNO_DRAW_ON_SINGLE_CLICK, false)),
+                        'linkTaxonomy' => $linked_taxonomy,
+                        'addTermNonce' => wp_create_nonce( 'arwai_add_term_nonce' ),
+                        'annoNonce'    => wp_create_nonce( 'arwai_anno_nonce' ),
+                        'tagVocabulary' => [],
+                        'currentUser' => $current_user_data,
+                        'tagLinks' => [],
+                    ];
 
-        if ( empty( $image_sources ) ) {
-            return;
-        }
-
-        $this->enqueue_public_assets();
-
-        $viewer_data = [
-            'containerId'   => 'arwai-simple-viewer-container-' . $post_id,
-            'images'        => $image_sources,
-            'ajax_url'      => admin_url( 'admin-ajax.php' ),
-            'anno_options'  => $this->get_annotorious_config_options(),
-        ];
-
-        wp_localize_script( 'arwai-public-js', 'Arwai_Annotator_Data', $viewer_data );
-    }
+                    if ($linked_taxonomy !== 'none') {
+                        $terms = get_terms(['taxonomy' => $linked_taxonomy, 'hide_empty' => false]);
+                        if (!is_wp_error($terms) && !empty($terms)) {
+                            $anno_options['tagVocabulary'] = wp_list_pluck($terms, 'name');
+                            $tag_link_map = [];
+                            foreach ($terms as $term) {
+                                $term_link = get_term_link($term, $linked_taxonomy);
+                                if (!is_wp_error($term_link)) {
+                                    $tag_link_map[$term->name] = esc_url($term_link);
+                                }
+                            }
+                            $anno_options['tagLinks'] = $tag_link_map;
+                        }
+                    }
 
 
     /**
@@ -556,6 +563,11 @@ class Image_Annotator_for_WordPress {
         if ( ! is_user_logged_in() ) {
             wp_send_json_error( 'You must be logged in to create annotations.' );
         }
+        check_ajax_referer( 'arwai_anno_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'edit_posts' ) ) {
+            wp_send_json_error( 'You do not have permission to create annotations.' );
+        }
 
         global $wpdb;
         $annotation_json = isset($_POST['annotation']) ? wp_unslash($_POST['annotation']) : '';
@@ -638,6 +650,11 @@ class Image_Annotator_for_WordPress {
         if ( ! is_user_logged_in() ) {
             wp_send_json_error( 'You must be logged in to delete annotations.' );
         }
+        check_ajax_referer( 'arwai_anno_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'edit_posts' ) ) {
+            wp_send_json_error( 'You do not have permission to delete annotations.' );
+        }
 
         global $wpdb;
         $annoid = isset($_POST['annotationid']) ? sanitize_text_field($_POST['annotationid']) : '';
@@ -663,6 +680,11 @@ class Image_Annotator_for_WordPress {
     function anno_update() {
         if ( ! is_user_logged_in() ) {
             wp_send_json_error( 'You must be logged in to update annotations.' );
+        }
+        check_ajax_referer( 'arwai_anno_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'edit_posts' ) ) {
+            wp_send_json_error( 'You do not have permission to update annotations.' );
         }
 
         global $wpdb;
