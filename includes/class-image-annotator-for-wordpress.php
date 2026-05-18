@@ -31,12 +31,11 @@ class Image_Annotator_for_WordPress {
 
         $this->table_name = $wpdb->prefix . 'annotorious_data';
         $this->history_table_name = $wpdb->prefix . 'annotorious_history';
-        $this->filter_called = 0;
 
         add_action( 'wp_enqueue_scripts', array( $this, 'load_public_scripts' ) );
         add_action( 'admin_enqueue_scripts', array( $this, 'load_admin_scripts' ) );
         add_action( 'admin_init', array( $this, 'settings_init' ) );
-        add_action( 'admin_menu', array( $this, 'add_admin_menu' ) );
+        add_action( 'admin_menu', array( $this, 'add_settings_page' ) );
         add_action( 'add_meta_boxes', array( $this, 'add_plugin_metaboxes' ) );
         add_action( 'save_post', array( $this, 'save_multi_image_uploader_metabox' ), 10, 2 );
         add_filter( 'the_content', array( $this , 'content_filter' ), 20 );
@@ -64,11 +63,12 @@ class Image_Annotator_for_WordPress {
             'ARWAI Annotator',
             'manage_options',
             'arwai-image-annotator-settings',
-            array($this, 'settings_page_html'),
+            array($this, 'create_admin_page'),
             'dashicons-format-image',
             80
         );
     }
+
 
     private function get_active_post_types() {
         $active_types = get_option( self::OPTION_ACTIVE_POST_TYPES, array( 'post', 'page' ) );
@@ -96,7 +96,20 @@ class Image_Annotator_for_WordPress {
         add_settings_field('field_anno_taxonomy', '', array($this, 'field_anno_taxonomy_callback'), 'arwai-image-annotator-settings', 'arwai_image_annotator_settings_section_annotorious');
     }
 
-    // Removed unused create_admin_page method as it is replaced by settings_page_html
+    public function create_admin_page() {
+        ?>
+        <div class="wrap">
+            <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+            <form action="options.php" method="post">
+                <?php
+                settings_fields('arwai_image_annotator_options_group');
+                do_settings_sections('arwai-image-annotator-settings');
+                submit_button('Save Settings');
+                ?>
+            </form>
+        </div>
+        <?php
+    }
 
     // Sanitization Callbacks
     public function sanitize_display_mode_option( $input ) { $valid_options = array( 'metabox_viewer', 'gutenberg_block' ); return in_array( $input, $valid_options, true ) ? $input : 'metabox_viewer'; }
@@ -174,6 +187,16 @@ class Image_Annotator_for_WordPress {
             </div>
         </div>
         <?php
+    }
+
+    public function add_settings_page() {
+        add_options_page(
+            'Image Annotator Settings',
+            'Image Annotator',
+            'manage_options',
+            'arwai-image-annotator-settings',
+            array( $this, 'settings_page_html' )
+        );
     }
 
     public function settings_page_html() {
@@ -704,14 +727,7 @@ class Image_Annotator_for_WordPress {
 
         $this->_sync_annotation_tags_to_attachment($attachment_id, $annotation['body']);
 
-        // Sanitize comment body if it exists
-        if (isset($annotation['body']) && is_array($annotation['body'])) {
-            foreach ($annotation['body'] as $key => $body_item) {
-                if (isset($body_item['purpose']) && $body_item['purpose'] === 'commenting' && isset($body_item['value'])) {
-                    $annotation['body'][$key]['value'] = wp_kses_post($body_item['value']);
-                }
-            }
-        }
+        if (isset($annotation['body'][0]['value'])) { $annotation['body'][0]['value'] = wp_kses_post($annotation['body'][0]['value']); }
 
         $updated = $wpdb->update( $this->table_name, array('annotation_data' => wp_json_encode($annotation)), array('annotation_id_from_annotorious' => $annoid, 'attachment_id' => $attachment_id), array('%s'), array('%s', '%d') );
 
