@@ -218,7 +218,7 @@ class Image_Annotator_for_WordPress {
                         'drawOnSingleClick' => rest_sanitize_boolean(get_option(self::OPTION_ANNO_DRAW_ON_SINGLE_CLICK, false)),
                         'linkTaxonomy' => $linked_taxonomy,
                         'addTermNonce' => wp_create_nonce( 'arwai_add_term_nonce' ),
-                        'annoNonce' => wp_create_nonce( 'arwai_anno_nonce' ),
+                        'annoNonce'    => wp_create_nonce( 'arwai_anno_nonce' ),
                         'tagVocabulary' => [],
                         'currentUser' => $current_user_data,
                         'tagLinks' => [],
@@ -565,6 +565,10 @@ class Image_Annotator_for_WordPress {
         }
         check_ajax_referer( 'arwai_anno_nonce', 'nonce' );
 
+        if ( ! current_user_can( 'edit_posts' ) ) {
+            wp_send_json_error( 'You do not have permission to create annotations.' );
+        }
+
         global $wpdb;
         $annotation_json = isset($_POST['annotation']) ? wp_unslash($_POST['annotation']) : '';
         if (empty($annotation_json)) { wp_send_json_error('Annotation data missing.'); }
@@ -648,6 +652,10 @@ class Image_Annotator_for_WordPress {
         }
         check_ajax_referer( 'arwai_anno_nonce', 'nonce' );
 
+        if ( ! current_user_can( 'edit_posts' ) ) {
+            wp_send_json_error( 'You do not have permission to delete annotations.' );
+        }
+
         global $wpdb;
         $annoid = isset($_POST['annotationid']) ? sanitize_text_field($_POST['annotationid']) : '';
         $annotation_json = isset($_POST['annotation']) ? wp_unslash($_POST['annotation']) : '';
@@ -659,16 +667,6 @@ class Image_Annotator_for_WordPress {
         if (empty($attachment_id)) { wp_send_json_error('Could not find attachment ID.'); }
 
         $existing = $wpdb->get_row( $wpdb->prepare( "SELECT annotation_data FROM {$this->table_name} WHERE annotation_id_from_annotorious = %s AND attachment_id = %d", $annoid, $attachment_id ), ARRAY_A );
-        if (!$existing) {
-            wp_send_json_error('Annotation not found.');
-        }
-
-        // Verify ownership: must be the creator OR have manage_options capability
-        $creator_id = $wpdb->get_var( $wpdb->prepare( "SELECT user_id FROM {$this->history_table_name} WHERE annotation_id_from_annotorious = %s AND attachment_id = %d AND action_type = 'created' LIMIT 1", $annoid, $attachment_id ) );
-        if ( ! current_user_can( 'manage_options' ) && ( ! $creator_id || (int) $creator_id !== get_current_user_id() ) ) {
-            wp_send_json_error( 'You do not have permission to delete this annotation.' );
-        }
-
         if ($existing) {
             $wpdb->insert( $this->history_table_name, array('annotation_id_from_annotorious' => $annoid, 'attachment_id' => $attachment_id, 'action_type' => 'deleted', 'annotation_data_snapshot' => $existing['annotation_data'], 'user_id' => get_current_user_id()), array('%s', '%d', '%s', '%s', '%d') );
         }
@@ -685,6 +683,10 @@ class Image_Annotator_for_WordPress {
         }
         check_ajax_referer( 'arwai_anno_nonce', 'nonce' );
 
+        if ( ! current_user_can( 'edit_posts' ) ) {
+            wp_send_json_error( 'You do not have permission to update annotations.' );
+        }
+
         global $wpdb;
         $annoid = isset($_POST['annotationid']) ? sanitize_text_field($_POST['annotationid']) : '';
         $annotation_json = isset($_POST['annotation']) ? wp_unslash($_POST['annotation']) : '';
@@ -694,12 +696,6 @@ class Image_Annotator_for_WordPress {
         $image_url = $annotation['target']['source'] ?? '';
         $attachment_id = attachment_url_to_postid($image_url);
         if (empty($attachment_id)) { wp_send_json_error('Could not find attachment ID.'); }
-
-        // Verify ownership: must be the creator OR have manage_options capability
-        $creator_id = $wpdb->get_var( $wpdb->prepare( "SELECT user_id FROM {$this->history_table_name} WHERE annotation_id_from_annotorious = %s AND attachment_id = %d AND action_type = 'created' LIMIT 1", $annoid, $attachment_id ) );
-        if ( ! current_user_can( 'manage_options' ) && ( ! $creator_id || (int) $creator_id !== get_current_user_id() ) ) {
-            wp_send_json_error( 'You do not have permission to update this annotation.' );
-        }
 
         $this->_sync_annotation_tags_to_attachment($attachment_id, $annotation['body']);
 
