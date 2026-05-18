@@ -303,6 +303,25 @@ class Image_Annotator_for_WordPress {
     }
 
     /**
+     * Renders a template file.
+     *
+     * @param string $template_name The name of the template file in the templates directory.
+     * @param array  $data          Associative array of data to be extracted into the template's scope.
+     * @return string               The rendered template content.
+     */
+    private function render_template( $template_name, $data = array() ) {
+        $template_path = ARWAI_IMAGE_ANNOTATOR_PATH . 'templates/' . $template_name;
+        if ( ! file_exists( $template_path ) ) {
+            return '';
+        }
+
+        extract( $data );
+        ob_start();
+        include $template_path;
+        return ob_get_clean();
+    }
+
+    /**
      * Content_filter
      * Generates the HTML structure
      */
@@ -318,59 +337,13 @@ class Image_Annotator_for_WordPress {
             $image_ids = json_decode( get_post_meta( $post_id, self::META_IMAGE_IDS, true ), true );
             if ( !empty($image_ids) ) {
                 $this->filter_called++;
-                $container_id = 'arwai-simple-viewer-container-' . $post_id;
-                $first_image_url = wp_get_attachment_image_url( $image_ids[0], 'full' );
 
-                $thumbnails_html = '';
-                foreach ($image_ids as $index => $id) {
-                    $thumb_url = wp_get_attachment_image_url($id, 'thumbnail');
-                    $thumbnails_html .= "<img src='" . esc_url($thumb_url) . "' class='arwai-simple-thumb' data-index='" . esc_attr($index) . "'>";
-                }
+                $viewer_html = $this->render_template( 'public-viewer.php', array(
+                    'container_id'    => 'arwai-simple-viewer-container-' . $post_id,
+                    'first_image_url' => wp_get_attachment_image_url( $image_ids[0], 'full' ),
+                    'image_ids'       => $image_ids,
+                ) );
 
-                $viewer_html = "
-                    <div id='arwai-annotation-show-hide-buttons'>
-                        <button id='arwai-toggle-annotations' class='arwai-simple-toggle' title='Hide Annotations'>
-                            <span data-feather='eye'>Show Annotations</span>
-                            <span data-feather='eye-off' style='display:none;'>Hide Annotations</span>
-                        </button>
-                    </div>
-                    <div id='mainViewerID'>
-                        <div id='sidebarNav'>
-                            <button id='sidebarOpenButton' class='sidebar-nav-button' onclick='openNav()'>☰  Annotations</button>
-                            <button id='sidebarCloseButton' class='sidebar-nav-button' onclick='closeNav()' style='display: none;'>×  Close Sidebar</button>
-                        </div>
-
-                        <div id='" . esc_attr($container_id) . "' class='arwai-simple-viewer'>
-
-                            <div class='arwai-simple-viewer-main'>
-                                <img src='" . esc_url($first_image_url) . "' alt='Annotatable Image'>
-                                <div class='arwai-simple-viewer-nav'>
-                                    <button class='arwai-simple-prev'><span data-feather='arrow-left'></span></button>
-                                    <span class='arwai-simple-counter'><span class='arwai-simple-current-index'>1</span> / " . count($image_ids) . "</span>
-                                    <button class='arwai-simple-next'><span data-feather='arrow-right'></span></button>
-                                </div>
-                            </div>
-                            <div class='arwai-simple-viewer-strip-container'>
-                                <button class='arwai-simple-strip-scroll-left'>
-                                    <span data-feather='chevron-left'></span>
-                                </button>
-                                <div id='arwai-simple-viewer-reference-strip'>
-                                    " . $thumbnails_html . "
-                                </div>
-                                <button class='arwai-simple-strip-scroll-right'>
-                                    <span data-feather='chevron-right'></span>
-                                </button>
-                            </div>
-
-                        </div>
-                    </div>
-
-                    <div id='arwai-annotation-list-container' class='sidebar'>
-                        <h3>Annotations</h3>
-                        <ul id='arwai-annotation-list'></ul>
-                    </div>
-
-                ";
                 return $viewer_html . $content;
             }
         }
