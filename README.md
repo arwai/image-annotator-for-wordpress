@@ -30,7 +30,7 @@
 ### Adding Annotations
 1. Open a post or page of an enabled post type.
 2. Use the **Image Collection** metabox to add images. You can drag and drop images to change their display order.
-3. Ensure the **Viewer Mode** is set to "Default Viewer" (or use the Gutenberg block if preferred).
+3. Ensure the **Viewer Mode** is set to "Default Viewer".
 4. Save or publish the post.
 5. On the frontend, click and drag on the image to create a new annotation. Use the sidebar to see all existing annotations.
 
