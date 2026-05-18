@@ -194,53 +194,23 @@ class Image_Annotator_for_WordPress {
     }
 
     /**
-     * UPDATED: load_public_scripts
      * Enqueues scripts and styles for the frontend and localizes data.
      */
-    public function load_public_scripts(){
-        if ( ! is_singular( $this->get_active_post_types() ) ) return;
+    public function load_public_scripts() {
+        if ( ! is_singular( $this->get_active_post_types() ) ) {
+            return;
+        }
+
         $post_id = get_the_ID();
-        if (!$post_id) return;
+        if ( ! $post_id ) {
+            return;
+        }
 
         $display_mode = get_post_meta( $post_id, self::META_POST_DISPLAY_MODE, true ) ?: get_option( self::OPTION_DEFAULT_NEW_POST_MODE, 'metabox_viewer' );
 
-        if ( 'metabox_viewer' === $display_mode ) {
-            $image_ids = json_decode( get_post_meta( $post_id, self::META_IMAGE_IDS, true ), true );
-            if ( !empty( $image_ids ) && is_array( $image_ids ) ) {
-
-                $image_sources = array_reduce( $image_ids, function($carry, $id) {
-                    $full_src = wp_get_attachment_image_src( $id, 'full' );
-                    $thumb_src = wp_get_attachment_image_src( $id, 'thumbnail' );
-                    if ($full_src) {
-                        $carry[] = [
-                            'url'          => $full_src[0],
-                            'post_id'      => $id,
-                            'thumbnailUrl' => $thumb_src ? $thumb_src[0] : ''
-                        ];
-                    }
-                    return $carry;
-                }, []);
-
-                if (!empty($image_sources)) {
-                    // Enqueue Styles
-                    wp_enqueue_style( 'arwai-annotorious-css', ARWAI_IMAGE_ANNOTATOR_URL . 'assets/css/annotorious/annotorious.min.css');
-                    wp_enqueue_style( 'arwai-public-css', ARWAI_IMAGE_ANNOTATOR_URL . 'assets/css/public/public.css');
-
-                    // Enqueue Scripts
-                    wp_enqueue_script( 'arwai-annotorious-js', ARWAI_IMAGE_ANNOTATOR_URL . 'assets/js/annotorious/annotorious.min.js', array(), null, true );
-                    wp_enqueue_script( 'arwai-public-js', ARWAI_IMAGE_ANNOTATOR_URL . 'assets/js/public/script.js', array('jquery', 'arwai-annotorious-js'), null, true);
-                    wp_enqueue_script( 'feather-icons-js', ARWAI_IMAGE_ANNOTATOR_URL . 'assets/js/feather.min.js', array(), null, true); //
-
-                    // Annotorious options
-                    $linked_taxonomy = get_option(self::OPTION_ANNO_TAGS_LINK_TAXONOMY, 'none');
-                    $current_user_data = null;
-                    if ( is_user_logged_in() ) {
-                        $user = wp_get_current_user();
-                        $current_user_data = [
-                            'id' => $user->ID,
-                            'displayName' => $user->display_name,
-                        ];
-                    }
+        if ( 'metabox_viewer' !== $display_mode ) {
+            return;
+        }
 
                     $anno_options = [
                         'readOnly' => rest_sanitize_boolean(get_option(self::OPTION_ANNO_READ_ONLY, false)),
@@ -269,20 +239,91 @@ class Image_Annotator_for_WordPress {
                         }
                     }
 
-                    // Localized data structure to match the new script
-                    $viewer_data = [
-                        'containerId'   => 'arwai-simple-viewer-container-' . $post_id,
-                        'images'        => $image_sources,
-                        'ajax_url'      => admin_url( 'admin-ajax.php' ),
-                        'anno_options'  => $anno_options
-                    ];
 
-                    wp_localize_script( 'arwai-public-js', 'Arwai_Annotator_Data', $viewer_data );
-                }
-            }
+    /**
+     * Prepares image data for the frontend viewer.
+     *
+     * @param array $image_ids Array of attachment IDs.
+     * @return array Formatted image source data.
+     */
+    private function get_formatted_image_sources( $image_ids ) {
+        if ( empty( $image_ids ) || ! is_array( $image_ids ) ) {
+            return [];
         }
+
+        return array_reduce( $image_ids, function($carry, $id) {
+            $full_src = wp_get_attachment_image_src( $id, 'full' );
+            $thumb_src = wp_get_attachment_image_src( $id, 'thumbnail' );
+            if ($full_src) {
+                $carry[] = [
+                    'url'          => $full_src[0],
+                    'post_id'      => $id,
+                    'thumbnailUrl' => $thumb_src ? $thumb_src[0] : ''
+                ];
+            }
+            return $carry;
+        }, []);
     }
 
+    /**
+     * Enqueues CSS and JS for the frontend.
+     */
+    private function enqueue_public_assets() {
+        // Enqueue Styles
+        wp_enqueue_style( 'arwai-annotorious-css', ARWAI_IMAGE_ANNOTATOR_URL . 'assets/css/annotorious/annotorious.min.css');
+        wp_enqueue_style( 'arwai-public-css', ARWAI_IMAGE_ANNOTATOR_URL . 'assets/css/public/public.css');
+
+        // Enqueue Scripts
+        wp_enqueue_script( 'arwai-annotorious-js', ARWAI_IMAGE_ANNOTATOR_URL . 'assets/js/annotorious/annotorious.min.js', array(), null, true );
+        wp_enqueue_script( 'arwai-public-js', ARWAI_IMAGE_ANNOTATOR_URL . 'assets/js/public/script.js', array('jquery', 'arwai-annotorious-js'), null, true);
+        wp_enqueue_script( 'feather-icons-js', ARWAI_IMAGE_ANNOTATOR_URL . 'assets/js/feather.min.js', array(), null, true);
+    }
+
+    /**
+     * Compiles Annotorious configuration options.
+     *
+     * @return array Configuration options for Annotorious.
+     */
+    private function get_annotorious_config_options() {
+        $linked_taxonomy = get_option(self::OPTION_ANNO_TAGS_LINK_TAXONOMY, 'none');
+        $current_user_data = null;
+
+        if ( is_user_logged_in() ) {
+            $user = wp_get_current_user();
+            $current_user_data = [
+                'id' => $user->ID,
+                'displayName' => $user->display_name,
+            ];
+        }
+
+        $anno_options = [
+            'readOnly'          => rest_sanitize_boolean(get_option(self::OPTION_ANNO_READ_ONLY, false)),
+            'allowEmpty'        => rest_sanitize_boolean(get_option(self::OPTION_ANNO_ALLOW_EMPTY, false)),
+            'drawOnSingleClick' => rest_sanitize_boolean(get_option(self::OPTION_ANNO_DRAW_ON_SINGLE_CLICK, false)),
+            'linkTaxonomy'      => $linked_taxonomy,
+            'addTermNonce'      => wp_create_nonce( 'arwai_add_term_nonce' ),
+            'tagVocabulary'     => [],
+            'currentUser'       => $current_user_data,
+            'tagLinks'          => [],
+        ];
+
+        if ($linked_taxonomy !== 'none') {
+            $terms = get_terms(['taxonomy' => $linked_taxonomy, 'hide_empty' => false]);
+            if (!is_wp_error($terms) && !empty($terms)) {
+                $anno_options['tagVocabulary'] = wp_list_pluck($terms, 'name');
+                $tag_link_map = [];
+                foreach ($terms as $term) {
+                    $term_link = get_term_link($term, $linked_taxonomy);
+                    if (!is_wp_error($term_link)) {
+                        $tag_link_map[$term->name] = esc_url($term_link);
+                    }
+                }
+                $anno_options['tagLinks'] = $tag_link_map;
+            }
+        }
+
+        return $anno_options;
+    }
 
     public function load_admin_scripts($hook_suffix) {
         $is_settings_page = $hook_suffix === 'settings_page_arwai-image-annotator-settings';
@@ -304,6 +345,25 @@ class Image_Annotator_for_WordPress {
     }
 
     /**
+     * Renders a template file.
+     *
+     * @param string $template_name The name of the template file in the templates directory.
+     * @param array  $data          Associative array of data to be extracted into the template's scope.
+     * @return string               The rendered template content.
+     */
+    private function render_template( $template_name, $data = array() ) {
+        $template_path = ARWAI_IMAGE_ANNOTATOR_PATH . 'templates/' . $template_name;
+        if ( ! file_exists( $template_path ) ) {
+            return '';
+        }
+
+        extract( $data );
+        ob_start();
+        include $template_path;
+        return ob_get_clean();
+    }
+
+    /**
      * Content_filter
      * Generates the HTML structure
      */
@@ -319,59 +379,13 @@ class Image_Annotator_for_WordPress {
             $image_ids = json_decode( get_post_meta( $post_id, self::META_IMAGE_IDS, true ), true );
             if ( !empty($image_ids) ) {
                 $this->filter_called++;
-                $container_id = 'arwai-simple-viewer-container-' . $post_id;
-                $first_image_url = wp_get_attachment_image_url( $image_ids[0], 'full' );
 
-                $thumbnails_html = '';
-                foreach ($image_ids as $index => $id) {
-                    $thumb_url = wp_get_attachment_image_url($id, 'thumbnail');
-                    $thumbnails_html .= "<img src='" . esc_url($thumb_url) . "' class='arwai-simple-thumb' data-index='" . esc_attr($index) . "'>";
-                }
+                $viewer_html = $this->render_template( 'public-viewer.php', array(
+                    'container_id'    => 'arwai-simple-viewer-container-' . $post_id,
+                    'first_image_url' => wp_get_attachment_image_url( $image_ids[0], 'full' ),
+                    'image_ids'       => $image_ids,
+                ) );
 
-                $viewer_html = "
-                    <div id='arwai-annotation-show-hide-buttons'>
-                        <button id='arwai-toggle-annotations' class='arwai-simple-toggle' title='Hide Annotations'>
-                            <span data-feather='eye'>Show Annotations</span>
-                            <span data-feather='eye-off' style='display:none;'>Hide Annotations</span>
-                        </button>
-                    </div>
-                    <div id='mainViewerID'>
-                        <div id='sidebarNav'>
-                            <button id='sidebarOpenButton' class='sidebar-nav-button' onclick='openNav()'>☰  Annotations</button>
-                            <button id='sidebarCloseButton' class='sidebar-nav-button' onclick='closeNav()' style='display: none;'>×  Close Sidebar</button>
-                        </div>
-
-                        <div id='" . esc_attr($container_id) . "' class='arwai-simple-viewer'>
-
-                            <div class='arwai-simple-viewer-main'>
-                                <img src='" . esc_url($first_image_url) . "' alt='Annotatable Image'>
-                                <div class='arwai-simple-viewer-nav'>
-                                    <button class='arwai-simple-prev'><span data-feather='arrow-left'></span></button>
-                                    <span class='arwai-simple-counter'><span class='arwai-simple-current-index'>1</span> / " . count($image_ids) . "</span>
-                                    <button class='arwai-simple-next'><span data-feather='arrow-right'></span></button>
-                                </div>
-                            </div>
-                            <div class='arwai-simple-viewer-strip-container'>
-                                <button class='arwai-simple-strip-scroll-left'>
-                                    <span data-feather='chevron-left'></span>
-                                </button>
-                                <div id='arwai-simple-viewer-reference-strip'>
-                                    " . $thumbnails_html . "
-                                </div>
-                                <button class='arwai-simple-strip-scroll-right'>
-                                    <span data-feather='chevron-right'></span>
-                                </button>
-                            </div>
-
-                        </div>
-                    </div>
-
-                    <div id='arwai-annotation-list-container' class='sidebar'>
-                        <h3>Annotations</h3>
-                        <ul id='arwai-annotation-list'></ul>
-                    </div>
-
-                ";
                 return $viewer_html . $content;
             }
         }
